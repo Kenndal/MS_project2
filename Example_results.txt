@@ -1,0 +1,80 @@
+==================================================================================================================================================================================================================================================
+Legacy station 802.11n  and 3x AX stations 802.11n
+
+./waf --run "scratch/project_2 --simulationTime=5 --layers=1 --stations=3 --legacy_stations=1 --RngRun=100 --debug=true"
+
+There are 1 APs in 1 layers.
+Show AP's position:
+Node 0 has coordinates (0, 0, 10)
+
+There are 1 legacy APs in network
+Show AP's position:
+Node 0 has coordinates (0, 0, 10)
+
+AX stations:
+Show Stations around AP(0):
+Node 0 has coordinates (-14.3275, -2.26395, 1.5)
+Node 1 has coordinates (-9.28498, 3.9412, 1.5)
+Node 2 has coordinates (0.061793, 0.222582, 1.5)
+
+Legacy stations:
+Show Stations around AP(0):
+Node 0 has coordinates (2.58733, -1.59135, 1.5)
+Flow 1 (10.1.0.4 -> 10.1.0.1)   Throughput: 13.1211 Mbps
+Flow 2 (10.1.0.3 -> 10.1.0.1)   Throughput: 1.1801 Mbps
+Flow 3 (10.2.0.2 -> 10.2.0.1)   Throughput: 4.87983 Mbps
+Flow 4 (10.1.0.2 -> 10.1.0.1)   Throughput: 1.00475 Mbps
+channel width80
+Results:
+- aggregate area throughput: 20.1858 Mbit/s
+
+
+==================================================================================================================================================================================================================================================
+3x AX stations 802.11n
+
+./waf --run "scratch/project_2 --simulationTime=5 --layers=1 --stations=3 --legacy_stations=0 --RngRun=100 --debug=true"
+
+There are 1 APs in 1 layers.
+Show AP's position:
+Node 0 has coordinates (0, 0, 10)
+
+There are 0 legacy APs in network
+Show AP's position:
+
+AX stations:
+Show Stations around AP(0):
+Node 0 has coordinates (-14.3275, -2.26395, 1.5)
+Node 1 has coordinates (-9.28498, 3.9412, 1.5)
+Node 2 has coordinates (0.061793, 0.222582, 1.5)
+
+Legacy stations:
+Flow 1 (10.1.0.4 -> 10.1.0.1)   Throughput: 14.2856 Mbps
+Flow 2 (10.1.0.3 -> 10.1.0.1)   Throughput: 7.50108 Mbps
+Flow 3 (10.1.0.2 -> 10.1.0.1)   Throughput: 5.62849 Mbps
+channel width80
+Results:
+- aggregate area throughput: 27.4152 Mbit/s
+
+==================================================================================================================================================================================================================================================
+Legacy station 802.11n
+
+./waf --run "scratch/project_2 --simulationTime=5 --layers=1 --stations=0 --legacy_stations=1 --RngRun=100 --debug=true"
+
+There are 1 APs in 1 layers.
+Show AP's position:
+Node 0 has coordinates (0, 0, 10)
+
+There are 1 legacy APs in network
+Show AP's position:
+Node 0 has coordinates (0, 0, 10)
+
+AX stations:
+Show Stations around AP(0):
+
+Legacy stations:
+Show Stations around AP(0):
+Node 0 has coordinates (2.58733, -1.59135, 1.5)
+Flow 1 (10.2.0.2 -> 10.2.0.1)   Throughput: 11.8358 Mbps
+channel width80
+Results:
+- aggregate area throughput: 11.8358 Mbit/s
