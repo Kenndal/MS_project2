@@ -79,14 +79,16 @@ int main (int argc, char *argv[])
 
     bool enableRtsCts = false; // RTS/CTS disabled by default
     int stations = 5; //Stations per grid
+    int legacy_stations = 1; // Legacy stations in network
     int layers = 1; //Layers of hex grid
     bool debug = false;
     int h = 30; //distance between AP/2 (radius of hex grid)
     string phy = "ax"; //802.11 PHY to use
-    int channelWidth = 20;
-    bool pcap = false;
+    int channelWidth = 80;
+    bool pcap = true;
     bool highMcs = false; //Use of high MCS settings
     string mcs;
+    string legacy_mcs;
     std::string offeredLoad = "100"; //Mbps
     int simulationTime = 10;
     int warmupTime = 1;
@@ -98,6 +100,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("simulationTime", "Simulation time [s]", simulationTime);
     cmd.AddValue ("layers", "Number of layers in hex grid", layers);
     cmd.AddValue ("stations", "Number of stations in each grid", stations);
+    cmd.AddValue ("legacy_stations", "Number of legacy stations in network", legacy_stations);
     cmd.AddValue ("debug", "Enable debug mode", debug);
     cmd.AddValue ("rts", "Enable RTS/CTS", enableRtsCts);
     cmd.AddValue ("phy", "Select PHY layer", phy);
@@ -109,6 +112,12 @@ int main (int argc, char *argv[])
     cmd.Parse (argc,argv);
 
     int APs =  countAPs(layers);
+
+    /* Stop simulation if count of AP is lower than lagacy stations */
+    /* To avoid problems, only one lagacy station is possible to set per gird */
+    if (APs < legacy_stations) {
+        return 0;
+    }
 
     /* Enable or disable RTS/CTS */
 
@@ -145,8 +154,36 @@ int main (int argc, char *argv[])
         showPosition(wifiApNodes);
     }
 
+
+
+
+    if(debug){
+	    std::cout << "\nThere are "<< legacy_stations << " legacy APs in network\n";
+    }
+
+    /* Calculate legacy AP positions */
+    double ** LegacyAPpositions;
+    LegacyAPpositions = calculateAPpositions(h,layers);
+
+    NodeContainer wifiLegacyApNodes ;
+    wifiLegacyApNodes.Create(legacy_stations);
+
     /* Place each station randomly around its AP */
 
+    placeNodes(LegacyAPpositions,wifiLegacyApNodes);
+
+    /* Display Legacy AP positions */
+
+    if(debug)
+    {
+        cout << "Show AP's position: "<< endl;
+        showPosition(wifiLegacyApNodes);
+    }
+
+
+    if(debug){
+	    std::cout << "\nAX stations:\n";
+    }
     NodeContainer wifiStaNodes[APs];
     for(int APindex = 0; APindex < APs; ++APindex)
     {
@@ -164,6 +201,32 @@ int main (int argc, char *argv[])
         {
             cout <<"Show Stations around AP("<<APindex<<"):"<<endl;
             showPosition(wifiStaNodes[APindex]);
+        }
+    }
+
+
+    /* Place legacy stations in network */
+    if(debug){
+	    std::cout << "\nLegacy stations:\n";
+    }
+
+    NodeContainer wifiLegacyStaNodes[legacy_stations];
+    for(int APindex = 0; APindex < legacy_stations; ++APindex)
+    {
+        wifiLegacyStaNodes[APindex].Create(1);
+        double **LegacySTAposition;
+        LegacySTAposition = calculateSTApositions(APpositions[0][APindex], APpositions[1][APindex], h, 1);
+
+        /* Place legacy station in 3D (X,Y,Z) plane */
+
+        placeNodes(LegacySTAposition,wifiLegacyStaNodes[APindex]);
+
+        /* Display Legacy STA position */
+
+        if(debug)
+        {
+            cout <<"Show Stations around AP("<<APindex<<"):"<<endl;
+            showPosition(wifiLegacyStaNodes[APindex]);
         }
     }
 
@@ -232,6 +295,7 @@ int main (int argc, char *argv[])
     //wifiChannel.AddPropagationLoss ("ns3::TwoRayGroundPropagationLossModel");
 
     /* Set channel width */
+    std::cout << "channel width"<< channelWidth;
     Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/ChannelWidth", UintegerValue (channelWidth));
 
 
@@ -239,6 +303,7 @@ int main (int argc, char *argv[])
 
 
     wifiPhy.SetChannel (wifiChannel.Create ());
+    wifiPhy.Set ("ChannelNumber", UintegerValue (42));
     wifiPhy.Set ("TxPowerStart", DoubleValue (20.0));
     wifiPhy.Set ("TxPowerEnd", DoubleValue (20.0));
     wifiPhy.Set ("TxPowerLevels", UintegerValue (1));
@@ -254,10 +319,10 @@ int main (int argc, char *argv[])
     Ssid ssid;
 
     for(int i = 0; i < APs; ++i) {
-	ssid = Ssid ("hew-outdoor-network-" + std::to_string(i));
-	wifiMac.SetType ("ns3::ApWifiMac","Ssid", SsidValue (ssid));
-	NetDeviceContainer apDevice = wifiHelper.Install (wifiPhy, wifiMac, wifiApNodes.Get(i));
-	apDevices.Add(apDevice);
+        ssid = Ssid ("hew-outdoor-network-" + std::to_string(i));
+        wifiMac.SetType ("ns3::ApWifiMac","Ssid", SsidValue (ssid));
+        NetDeviceContainer apDevice = wifiHelper.Install (wifiPhy, wifiMac, wifiApNodes.Get(i));
+        apDevices.Add(apDevice);
     }
 
     wifiPhy.Set ("TxPowerStart", DoubleValue (15.0));
@@ -268,11 +333,64 @@ int main (int argc, char *argv[])
     NetDeviceContainer staDevices[APs];
 
     for(int i = 0; i < APs; ++i) {
-	ssid = Ssid ("hew-outdoor-network-" + std::to_string(i));
-	wifiMac.SetType ("ns3::StaWifiMac",	"Ssid", SsidValue (ssid),"ActiveProbing", BooleanValue (false));
-	NetDeviceContainer staDevice = wifiHelper.Install (wifiPhy, wifiMac, wifiStaNodes[i]);
-	staDevices[i].Add(staDevice);
+        ssid = Ssid ("hew-outdoor-network-" + std::to_string(i));
+        wifiMac.SetType ("ns3::StaWifiMac",	"Ssid", SsidValue (ssid),"ActiveProbing", BooleanValue (false));
+        NetDeviceContainer staDevice = wifiHelper.Install (wifiPhy, wifiMac, wifiStaNodes[i]);
+        staDevices[i].Add(staDevice);
     }
+
+    /* Configure legacy propagation model */
+    WifiMacHelper legacyWifiMac;
+    WifiHelper legacyWifiHelper;
+    // YansWifiPhyHelper legacyWifiPhy;
+    legacy_mcs ="HtMcs0";
+    legacyWifiHelper.SetStandard (WIFI_STANDARD_80211n_5GHZ);
+    legacyWifiHelper.SetRemoteStationManager ("ns3::ConstantRateWifiManager",
+        "DataMode", StringValue (legacy_mcs),
+        "ControlMode", StringValue (legacy_mcs));
+
+    /* Set up legacy Channel */
+    // YansWifiChannelHelper legacyWifiChannel = YansWifiChannelHelper::Default ();
+    // legacyWifiChannel.SetPropagationDelay ("ns3::ConstantSpeedPropagationDelayModel");
+
+    /* Set channel width */
+    // Config::Set ("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/ChannelWidth", UintegerValue (channelWidth));
+
+    /* Configure legacy MAC and PHY */
+    // wifiPhy.SetChannel (wifiChannel.Create ());
+    wifiPhy.Set ("TxPowerStart", DoubleValue (20.0));
+    wifiPhy.Set ("TxPowerEnd", DoubleValue (20.0));
+    wifiPhy.Set ("TxPowerLevels", UintegerValue (1));
+    wifiPhy.Set ("TxGain", DoubleValue (0));
+    wifiPhy.Set ("RxGain", DoubleValue (0));
+    wifiPhy.Set ("RxNoiseFigure", DoubleValue (7));
+    wifiPhy.SetErrorRateModel ("ns3::YansErrorRateModel");
+
+    NetDeviceContainer legacyApDevices;
+    Ssid legacy_ssid;
+
+    for(int i = 0; i < legacy_stations; ++i) {
+        legacy_ssid = Ssid ("hew-outdoor-legacy-network-" + std::to_string(i));
+        legacyWifiMac.SetType ("ns3::ApWifiMac","Ssid", SsidValue (legacy_ssid));
+        NetDeviceContainer legacyApDevice = legacyWifiHelper.Install (wifiPhy, legacyWifiMac, wifiLegacyApNodes.Get(i));
+        legacyApDevices.Add(legacyApDevice);
+    }
+
+    wifiPhy.Set ("TxPowerStart", DoubleValue (15.0));
+    wifiPhy.Set ("TxPowerEnd", DoubleValue (15.0));
+    wifiPhy.Set ("TxPowerLevels", UintegerValue (1));
+    wifiPhy.Set ("TxGain", DoubleValue (-2)); // for STA -2 dBi
+
+    NetDeviceContainer legacyStaDevices[legacy_stations];
+
+    for(int i = 0; i < legacy_stations; ++i) {
+        legacy_ssid = Ssid ("hew-outdoor-legacy-network-" + std::to_string(i));
+        legacyWifiMac.SetType ("ns3::StaWifiMac",	"Ssid", SsidValue (legacy_ssid),"ActiveProbing", BooleanValue (false));
+        NetDeviceContainer legacyStaDevice = legacyWifiHelper.Install (wifiPhy, legacyWifiMac, wifiLegacyStaNodes[i]);
+        legacyStaDevices[i].Add(legacyStaDevice);
+    }
+
+
 
     /* Configure Internet stack */
 
@@ -280,36 +398,38 @@ int main (int argc, char *argv[])
     stack.Install (wifiApNodes);
     for(int i = 0; i < APs; ++i)
     {
-	stack.Install (wifiStaNodes[i]);
+	    stack.Install (wifiStaNodes[i]);
     }
-
-    // Ipv4AddressHelper address;
-    // address.SetBase ("10.1.0.0", "255.255.252.0");
-    //
-    // Ipv4InterfaceContainer StaInterfaces;
-    // Ipv4InterfaceContainer ApInterfaces;
-    //
-    // ApInterfaces = address.Assign (apDevices);
-    //
-    // for(int i = 0; i < APs; ++i)
-    // {
-    //
-    // 	StaInterfaces = address.Assign (staDevices[i]);
-    // }
-
-
 
     Ipv4AddressHelper address;
 
     for(int i = 0; i < APs; ++i)
     {
-	std::string addrString;
-	addrString =  "10.1." + to_string(i) + ".0";
-	const char *cstr = addrString.c_str(); //convert to constant char
-	address.SetBase (Ipv4Address(cstr), "255.255.255.0");
-	address.Assign (apDevices.Get(i));
-	address.Assign (staDevices[i]);
+        std::string addrString;
+        addrString =  "10.1." + to_string(i) + ".0";
+        const char *cstr = addrString.c_str(); //convert to constant char
+        address.SetBase (Ipv4Address(cstr), "255.255.255.0");
+        address.Assign (apDevices.Get(i));
+        address.Assign (staDevices[i]);
     }
+
+    /* Configure Internet stack for legacy stations*/
+    stack.Install (wifiLegacyApNodes);
+    for(int i = 0; i < legacy_stations; ++i)
+    {
+	    stack.Install (wifiLegacyStaNodes[i]);
+    }
+
+    for(int i = 0; i < legacy_stations; ++i)
+    {
+        std::string legacyAddrString;
+        legacyAddrString =  "10.2." + to_string(i) + ".0";
+        const char *cstr = legacyAddrString.c_str(); //convert to constant char
+        address.SetBase (Ipv4Address(cstr), "255.255.255.0");
+        address.Assign (legacyApDevices.Get(i));
+        address.Assign (legacyStaDevices[i]);
+    }
+
 
     /* PopulateArpCache  */
 
@@ -319,8 +439,15 @@ int main (int argc, char *argv[])
 
     int port=9;
     for(int i = 0; i < APs; ++i){
-	for(int j = 0; j < stations; ++j)
-	    installTrafficGenerator(wifiStaNodes[i].Get(j),wifiApNodes.Get(i), port++, offeredLoad, packetSize, simulationTime, warmupTime);
+        for(int j = 0; j < stations; ++j)
+            installTrafficGenerator(wifiStaNodes[i].Get(j),wifiApNodes.Get(i), port++, offeredLoad, packetSize, simulationTime, warmupTime);
+    }
+
+    /* Configure legacy applications */
+
+    int legacy_port=1000;
+    for(int i = 0; i < legacy_stations; ++i){
+            installTrafficGenerator(wifiLegacyStaNodes[i].Get(0), wifiLegacyApNodes.Get(i), legacy_port++, offeredLoad, packetSize, simulationTime, warmupTime);
     }
 
 
@@ -330,10 +457,17 @@ int main (int argc, char *argv[])
 
     if(pcap) {
         wifiPhy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
-	wifiPhy.EnablePcap ("hew-outdoor", apDevices);
-	for(int i = 0; i < APs; ++i){
-	    wifiPhy.EnablePcap ("hew-outdoor", staDevices[i]);
-	}
+        wifiPhy.EnablePcap ("hew-outdoor", apDevices);
+        for(int i = 0; i < APs; ++i){
+            wifiPhy.EnablePcap ("hew-outdoor", staDevices[i]);
+        }
+        if (legacy_stations > 0){
+            wifiPhy.EnablePcap ("hew-outdoor-legacy-", legacyApDevices);
+            for(int i = 0; i < APs; ++i){
+                wifiPhy.EnablePcap ("hew-outdoor-legacy-", legacyStaDevices[i]);
+            }
+        }
+
     }
 
     FlowMonitorHelper flowmon;
@@ -351,11 +485,11 @@ int main (int argc, char *argv[])
     ofstream myfile;
     if (fileExists(outputCsv))
     {
-	myfile.open (outputCsv, ios::app);
+	    myfile.open (outputCsv, ios::app);
     }
     else {
-	myfile.open (outputCsv, ios::app);  
-	myfile << "Timestamp,OfferedLoad,RngRun,FlowSrc,FlowDst,Throughput,Delay" << std::endl;
+        myfile.open (outputCsv, ios::app);  
+        myfile << "Timestamp,OfferedLoad,RngRun,FlowSrc,FlowDst,Throughput,Delay" << std::endl;
     }
 
     double totalThr=0;
@@ -363,15 +497,15 @@ int main (int argc, char *argv[])
     Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier> (flowmon.GetClassifier ());
     std::map<FlowId, FlowMonitor::FlowStats> stats = monitor->GetFlowStats ();
     for (std::map<FlowId, FlowMonitor::FlowStats>::const_iterator i = stats.begin (); i != stats.end (); ++i) {
-	auto time = std::time(nullptr); //Get timestamp
-	auto tm = *std::localtime(&time);
-	Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
-	flowThr=i->second.rxBytes * 8.0 / (i->second.timeLastRxPacket.GetSeconds () - i->second.timeFirstTxPacket.GetSeconds ()) / 1024 / 1024;
-	flowDel=i->second.delaySum.GetSeconds () / i->second.rxPackets;
-	if (debug) NS_LOG_UNCOND ("Flow " << i->first  << " (" << t.sourceAddress << " -> " << t.destinationAddress << ")\tThroughput: " <<  flowThr  << " Mbps");
-	myfile << std::put_time(&tm, "%Y-%m-%d %H:%M") << "," << offeredLoad << "," << RngSeedManager::GetRun() << "," << t.sourceAddress << "," << t.destinationAddress << "," << flowThr << "," << flowDel;
-	myfile << std::endl;
-	totalThr += flowThr;
+        auto time = std::time(nullptr); //Get timestamp
+        auto tm = *std::localtime(&time);
+        Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow (i->first);
+        flowThr=i->second.rxBytes * 8.0 / (i->second.timeLastRxPacket.GetSeconds () - i->second.timeFirstTxPacket.GetSeconds ()) / 1024 / 1024;
+        flowDel=i->second.delaySum.GetSeconds () / i->second.rxPackets;
+        if (debug) NS_LOG_UNCOND ("Flow " << i->first  << " (" << t.sourceAddress << " -> " << t.destinationAddress << ")\tThroughput: " <<  flowThr  << " Mbps");
+        myfile << std::put_time(&tm, "%Y-%m-%d %H:%M") << "," << offeredLoad << "," << RngSeedManager::GetRun() << "," << t.sourceAddress << "," << t.destinationAddress << "," << flowThr << "," << flowDel;
+        myfile << std::endl;
+        totalThr += flowThr;
     }
     myfile.close();
 
