@@ -85,7 +85,7 @@ int main (int argc, char *argv[])
     int h = 30; //distance between AP/2 (radius of hex grid)
     string phy = "ax"; //802.11 PHY to use
     int channelWidth = 80;
-    bool pcap = true;
+    bool pcap = false ;
     bool highMcs = false; //Use of high MCS settings
     string mcs;
     string legacy_mcs;
@@ -93,7 +93,6 @@ int main (int argc, char *argv[])
     int simulationTime = 10;
     int warmupTime = 1;
     int packetSize = 1472;
-    std::string outputCsv = "ms-lab7-outdoor.csv";
     /* Command line parameters */
 
     CommandLine cmd;
@@ -481,7 +480,7 @@ int main (int argc, char *argv[])
     /* Calculate results */
     double flowThr;
     double flowDel;
-
+    std::string outputCsv = "project_2-rngrun-"+std::to_string(RngSeedManager::GetRun())+"-legacy-station-"+std::to_string(legacy_stations)+".csv";
     ofstream myfile;
     if (fileExists(outputCsv))
     {
