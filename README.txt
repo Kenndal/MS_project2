@@ -18,6 +18,8 @@ UWAGA: "aggregate area throughput" jest zbierany dla 802.11ax i dla 802.11n, to 
 
 
 TODO: 
+Spradzić jak zrobić to żeby RTS/CTS nie odpalał się na legacy stations
+Spradzić jak ustawiać szerokość na legacy stations
 Spradzić jak to działa przy rożnej liczbie "layerów, stacje 802.11ax i stacji legacy
 Spradzić jak zbiera się csv
 Spradzić dalej czy wyniki mają jakiś sens.
